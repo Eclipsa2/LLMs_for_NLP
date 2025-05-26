@@ -32,6 +32,14 @@ results_content = {
     "neg_log_likelihood": [],
 }
 
+def ensure_json_serializable(obj):
+    if hasattr(obj, 'item'):
+        return obj.item()
+    elif hasattr(obj, 'tolist'):
+        return obj.tolist()
+    else:
+        return float(obj)
+
 def get_perplexity(text, model, tokenizer):
     input = tokenizer(text, return_tensors="pt").to(model.device)
     input_ids = input["input_ids"].to(model.device)
@@ -40,10 +48,10 @@ def get_perplexity(text, model, tokenizer):
         with torch.no_grad():
             outputs = model(input_ids, labels=input_ids)
 
-        neg_log_likelihood = outputs.loss
-        perplexity = math.exp(neg_log_likelihood.item())
+        neg_log_likelihood = outputs.loss.item()
+        perplexity = math.exp(neg_log_likelihood)
 
-        return neg_log_likelihood, perplexity
+        return perplexity, neg_log_likelihood
 
     total_loss = 0
     total_tokens = 0
@@ -70,6 +78,7 @@ def get_perplexity(text, model, tokenizer):
     return perplexity, avg_neg_log_likelihood
 
 for news in content:
+    print("-" * 50)
     for key, value in news.items():
         if key =="metadata":
             continue
@@ -77,18 +86,17 @@ for news in content:
         if len(value) == 0:
             continue
 
-        print("-" * 50)
         print(key, value)
 
         perplexity, neg_log_likelihood = get_perplexity(value, model, tokenizer)
 
         if key == "title":
-            results_title['perplexity'].append(perplexity)
-            results_title['neg_log_likelihood'].append(neg_log_likelihood)
+            results_title['perplexity'].append(ensure_json_serializable(perplexity))
+            results_title['neg_log_likelihood'].append(ensure_json_serializable(neg_log_likelihood))
 
         elif key == "content":
-            results_content['perplexity'].append(perplexity)
-            results_content['neg_log_likelihood'].append(neg_log_likelihood)
+            results_content['perplexity'].append(ensure_json_serializable(perplexity))
+            results_content['neg_log_likelihood'].append(ensure_json_serializable(neg_log_likelihood))
 
 with open("results_title_moldova.json", "w") as file:
     json.dump(results_title, file, indent=4)
